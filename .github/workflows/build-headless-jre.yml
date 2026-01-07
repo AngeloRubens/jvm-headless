@@ -1,89 +1,102 @@
-name: Build Headless JRE
+name: Build Headless JRE 25
 
 on:
   workflow_dispatch:
     inputs:
       jdk:
-        description: 'Seleziona quale JDK usare'
+        description: "Select JDK distribution"
         required: true
         type: choice
         options:
           - Temurin JDK 25 Linux x64
           - Zulu JDK 25 Linux x64
           - Semeru JDK 25 Linux x64
-      modules:
-        description: 'Modulo JDK da includere nella JRE headless'
-        default: java.base,java.logging,java.xml,java.xml.crypto,java.sql,java.naming,java.security.jgss,java.security.sasl,jdk.crypto.cryptoki,jdk.crypto.ec,jdk.management,jdk.management.agent,jdk.unsupported,jdk.charsets,java.rmi
-        required: false
 
 jobs:
-  build-jre:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    - name: Checkout
+      uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y curl tar unzip
+    - name: Download JDK
+      run: |
+        case "${{ github.event.inputs.jdk }}" in
+          "Temurin JDK 25 Linux x64")
+            URL="https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.1%2B8/OpenJDK25U-jdk_x64_linux_hotspot_25.0.1_8.tar.gz"
+            ;;
+          "Zulu JDK 25 Linux x64")
+            URL="https://cdn.azul.com/zulu/bin/zulu25.30.17-ca-jdk25.0.1-linux_x64.tar.gz"
+            ;;
+          "Semeru JDK 25 Linux x64")
+            URL="https://github.com/ibmruntimes/semeru25-binaries/releases/download/jdk-25.0.1%2B8_openj9-0.56.0/ibm-semeru-open-jdk_x64_linux_25.0.1_8_openj9-0.56.0.tar.gz"
+            ;;
+          *)
+            echo "Unknown JDK selection"
+            exit 1
+            ;;
+        esac
 
-      - name: Download and extract JDK
-        run: |
-          echo "Selected JDK: ${{ github.event.inputs.jdk }}"
-          mkdir jdk
+        echo "Downloading $URL"
+        mkdir jdk
+        curl -L "$URL" -o jdk.tar.gz
+        tar -xzf jdk.tar.gz -C jdk --strip-components=1
+        echo "JAVA_HOME=$PWD/jdk" >> $GITHUB_ENV
 
-          # Case direttamente qui
-          case "${{ github.event.inputs.jdk }}" in
-            "Temurin JDK 25 Linux x64")
-              URL="https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.1%2B8/OpenJDK25U-jdk_x64_linux_hotspot_25.0.1_8.tar.gz" ;;
-            "Zulu JDK 25 Linux x64")
-              URL="https://cdn.azul.com/zulu/bin/zulu25.30.17-ca-jdk25.0.1-linux_x64.tar.gz" ;;
-            "Semeru JDK 25 Linux x64")
-              URL="https://github.com/ibmruntimes/semeru25-binaries/releases/download/jdk-25.0.1%2B8_openj9-0.56.0/ibm-semeru-open-jdk_x64_linux_25.0.1_8_openj9-0.56.0.tar.gz" ;;
-            *)
-              echo "Unknown JDK selection"
-              exit 1 ;;
-          esac
+    - name: Verify JDK
+      run: |
+        $JAVA_HOME/bin/java -version
+        $JAVA_HOME/bin/java --list-modules | wc -l
 
-          echo "Downloading JDK from $URL"
-          curl -L "$URL" -o jdk.tar.gz
-          tar -xzf jdk.tar.gz -C jdk --strip-components=1
-          export JAVA_HOME=$(find jdk -maxdepth 1 -type d -name '*jdk*' | head -n 1 || echo "jdk")
-          echo "JAVA_HOME=$JAVA_HOME" >> $GITHUB_ENV
+    - name: Build headless JRE with jlink
+      run: |
+        rm -rf output
+        mkdir output
 
-      - name: Verify JDK
-        run: |
-          $JAVA_HOME/bin/java -version
-          $JAVA_HOME/bin/jlink --version
+        $JAVA_HOME/bin/jlink \
+          --module-path $JAVA_HOME/jmods \
+          --add-modules \
+            java.base, \
+            java.logging, \
+            java.xml, \
+            java.xml.crypto, \
+            java.sql, \
+            java.naming, \
+            java.security.jgss, \
+            java.security.sasl, \
+            java.rmi, \
+            jdk.crypto.ec, \
+            jdk.crypto.cryptoki, \
+            jdk.management, \
+            jdk.management.agent, \
+            jdk.unsupported, \
+            jdk.charsets \
+          --output output/headless-jre \
+          --strip-debug \
+          --compress=2 \
+          --no-man-pages \
+          --no-header-files
 
-      - name: Create headless JRE
-        run: |
-          rm -rf output
-          mkdir output
-          $JAVA_HOME/bin/jlink \
-            --module-path $JAVA_HOME/jmods \
-            --add-modules java.base,java.logging,java.xml,java.xml.crypto,java.sql,java.naming,java.security.jgss,java.security.sasl,jdk.crypto.cryptoki,jdk.crypto.ec,jdk.management,jdk.management.agent,jdk.unsupported,jdk.charsets,java.rmi \
-            --output output/headless-jre \
-            --strip-debug \
-            --compress=2 \
-            --no-man-pages \
-            --no-header-files
+    - name: Strip extra files
+      run: |
+        rm -rf output/headless-jre/demo || true
+        rm -rf output/headless-jre/sample || true
+        rm -f  output/headless-jre/lib/src.zip || true
+        rm -rf output/headless-jre/legal || true
 
+    - name: Sanity check
+      run: |
+        output/headless-jre/bin/java -version
+        du -sh output/headless-jre
 
-      - name: Clean up extra files
-        run: |
-          rm -rf output/headless-jre/demo
-          rm -rf output/headless-jre/sample
-          rm -rf output/headless-jre/lib/src.zip
+    - name: Package JRE
+      run: |
+        cd output
+        zip -r headless-jre.zip headless-jre
 
-      - name: Package headless JRE
-        run: |
-          cd output
-          zip -r headless-jre.zip headless-jre
-        working-directory: output
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: headless-jre
-          path: output/headless-jre.zip
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: headless-jre-${{ github.event.inputs.jdk }}
+        path: output/headless-jre.zip
