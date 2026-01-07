@@ -25,28 +25,28 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y curl unzip
-
-      - name: Set JDK URL
-        id: jdk-url
-        run: |
-          case "${{ github.event.inputs.jdk }}" in
-            "Temurin JDK 25 Linux x64")
-              echo "URL=https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.1%2B8/OpenJDK25U-jdk_x64_linux_hotspot_25.0.1_8.tar.gz" ;;
-            "Zulu JDK 25 Linux x64")
-              echo "URL=https://cdn.azul.com/zulu/bin/zulu25.30.17-ca-jdk25.0.1-linux_x64.tar.gz" ;;
-            "Semeru JDK 25 Linux x64")
-              echo "URL=https://github.com/ibmruntimes/semeru25-binaries/releases/download/jdk-25.0.1%2B8_openj9-0.56.0/ibm-semeru-open-jdk_x64_linux_25.0.1_8_openj9-0.56.0.tar.gz" ;;
-            *)
-              echo "Unknown JDK"
-              exit 1 ;;
-          esac
-          echo "URL=$URL" >> $GITHUB_ENV
+        run: sudo apt-get update && sudo apt-get install -y curl tar unzip
 
       - name: Download and extract JDK
         run: |
+          echo "Selected JDK: ${{ github.event.inputs.jdk }}"
           mkdir jdk
-          curl -L $URL -o jdk.tar.gz
+
+          # Case direttamente qui
+          case "${{ github.event.inputs.jdk }}" in
+            "Temurin JDK 25 Linux x64")
+              URL="https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.1%2B8/OpenJDK25U-jdk_x64_linux_hotspot_25.0.1_8.tar.gz" ;;
+            "Zulu JDK 25 Linux x64")
+              URL="https://cdn.azul.com/zulu/bin/zulu25.30.17-ca-jdk25.0.1-linux_x64.tar.gz" ;;
+            "Semeru JDK 25 Linux x64")
+              URL="https://github.com/ibmruntimes/semeru25-binaries/releases/download/jdk-25.0.1%2B8_openj9-0.56.0/ibm-semeru-open-jdk_x64_linux_25.0.1_8_openj9-0.56.0.tar.gz" ;;
+            *)
+              echo "Unknown JDK selection"
+              exit 1 ;;
+          esac
+
+          echo "Downloading JDK from $URL"
+          curl -L "$URL" -o jdk.tar.gz
           tar -xzf jdk.tar.gz -C jdk --strip-components=1
           export JAVA_HOME=$(find jdk -maxdepth 1 -type d -name '*jdk*' | head -n 1 || echo "jdk")
           echo "JAVA_HOME=$JAVA_HOME" >> $GITHUB_ENV
@@ -82,7 +82,7 @@ jobs:
         working-directory: output
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: headless-jre
           path: output/headless-jre.zip
