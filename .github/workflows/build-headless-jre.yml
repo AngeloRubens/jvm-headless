@@ -13,7 +13,7 @@ on:
           - Semeru JDK 25 Linux x64
       modules:
         description: 'Modulo JDK da includere nella JRE headless'
-        default: java.base,java.logging,java.xml,java.xml.crypto,java.sql,java.naming,java.security.jgss,java.security.sasl,jdk.crypto.cryptoki,jdk.crypto.ec,jdk.management,jdk.management.agent,jdk.unsupported,jdk.charsets,java.rmi,jdk.rmi
+        default: java.base,java.logging,java.xml,java.xml.crypto,java.sql,java.naming,java.security.jgss,java.security.sasl,jdk.crypto.cryptoki,jdk.crypto.ec,jdk.management,jdk.management.agent,jdk.unsupported,jdk.charsets,java.rmi
         required: false
 
 jobs:
