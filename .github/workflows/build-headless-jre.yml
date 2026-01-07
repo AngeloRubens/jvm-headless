@@ -32,11 +32,11 @@ jobs:
         run: |
           case "${{ github.event.inputs.jdk }}" in
             "Temurin JDK 25 Linux x64")
-              echo "URL=https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25+0/OpenJDK25U-jdk_x64_linux_hotspot_25_0.tar.gz" ;;
+              echo "URL=https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.1%2B8/OpenJDK25U-jdk_x64_linux_hotspot_25.0.1_8.tar.gz" ;;
             "Zulu JDK 25 Linux x64")
-              echo "URL=https://cdn.azul.com/zulu/bin/zulu25.0.0-jdk25.0.0-linux_x64.tar.gz" ;;
+              echo "URL=https://cdn.azul.com/zulu/bin/zulu25.30.17-ca-jdk25.0.1-linux_x64.tar.gz" ;;
             "Semeru JDK 25 Linux x64")
-              echo "URL=https://github.com/eclipse-openj9/semeru17-binaries/releases/download/jdk-25.0.0/OpenJDK25U-jdk_x64_linux_openj9_25.0.0.tar.gz" ;;
+              echo "URL=https://github.com/ibmruntimes/semeru25-binaries/releases/download/jdk-25.0.1%2B8_openj9-0.56.0/ibm-semeru-open-jdk_x64_linux_25.0.1_8_openj9-0.56.0.tar.gz" ;;
             *)
               echo "Unknown JDK"
               exit 1 ;;
