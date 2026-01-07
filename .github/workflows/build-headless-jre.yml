@@ -1,4 +1,4 @@
-name: Build Headless JRE 25
+name: Build Headless JRE 25 (FIPS-ready)
 
 on:
   workflow_dispatch:
@@ -20,6 +20,9 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
+    # ------------------------------------------------------------
+    # Download JDK
+    # ------------------------------------------------------------
     - name: Download JDK
       run: |
         case "${{ github.event.inputs.jdk }}" in
@@ -33,12 +36,11 @@ jobs:
             URL="https://github.com/ibmruntimes/semeru25-binaries/releases/download/jdk-25.0.1%2B8_openj9-0.56.0/ibm-semeru-open-jdk_x64_linux_25.0.1_8_openj9-0.56.0.tar.gz"
             ;;
           *)
-            echo "Unknown JDK selection"
+            echo "Unknown JDK"
             exit 1
             ;;
         esac
 
-        echo "Downloading $URL"
         mkdir jdk
         curl -L "$URL" -o jdk.tar.gz
         tar -xzf jdk.tar.gz -C jdk --strip-components=1
@@ -49,12 +51,15 @@ jobs:
         $JAVA_HOME/bin/java -version
         $JAVA_HOME/bin/java --list-modules | wc -l
 
-    - name: Build headless JRE with jlink
+    # ------------------------------------------------------------
+    # Build headless JRE (server + FIPS-ready)
+    # ------------------------------------------------------------
+    - name: Build headless JRE
       run: |
         rm -rf output
         mkdir output
 
-        MODULES="java.base,java.logging,java.xml,java.xml.crypto,java.sql,java.naming,java.security.jgss,java.security.sasl,java.rmi,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.management,jdk.management.agent,jdk.unsupported,jdk.charsets"
+        MODULES="java.base,java.logging,java.xml,java.xml.crypto,java.sql,java.naming,java.security.jgss,java.security.sasl,java.rmi,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.security.auth,jdk.management,jdk.management.agent,jdk.unsupported,jdk.charsets"
 
         $JAVA_HOME/bin/jlink \
           --module-path "$JAVA_HOME/jmods" \
@@ -65,7 +70,9 @@ jobs:
           --no-man-pages \
           --no-header-files
 
-
+    # ------------------------------------------------------------
+    # Strip non-runtime content
+    # ------------------------------------------------------------
     - name: Strip extra files
       run: |
         rm -rf output/headless-jre/demo || true
@@ -73,11 +80,55 @@ jobs:
         rm -f  output/headless-jre/lib/src.zip || true
         rm -rf output/headless-jre/legal || true
 
-    - name: Sanity check
+    # ------------------------------------------------------------
+    # Verify headless JRE runtime
+    # ------------------------------------------------------------
+    - name: Verify headless JRE
       run: |
-        output/headless-jre/bin/java -version
-        du -sh output/headless-jre
+        JRE=output/headless-jre
 
+        echo "=== Java version ==="
+        $JRE/bin/java -version
+
+        echo "=== Modules ==="
+        $JRE/bin/java --list-modules | sort
+
+        echo "=== Headless check ==="
+        if $JRE/bin/java --list-modules | grep -q java.desktop; then
+          echo "ERROR: java.desktop present"
+          exit 1
+        fi
+        echo "OK: headless confirmed"
+
+    - name: Runtime execution sanity check
+      run: |
+        cat <<'EOF' > Test.java
+        public class Test {
+          public static void main(String[] args) {
+            System.out.println("JRE OK - " + Runtime.version());
+          }
+        }
+        EOF
+
+        output/headless-jre/bin/java Test
+
+    # ------------------------------------------------------------
+    # FIPS-ready verification
+    # ------------------------------------------------------------
+    - name: Verify FIPS readiness
+      run: |
+        JRE=output/headless-jre
+
+        echo "=== FIPS modules ==="
+        $JRE/bin/java --list-modules | grep jdk.crypto.cryptoki
+        $JRE/bin/java --list-modules | grep jdk.security.auth
+
+        echo "=== Security providers ==="
+        $JRE/bin/java -XshowSettings:security -version 2>&1 | grep provider
+
+    # ------------------------------------------------------------
+    # Package and upload
+    # ------------------------------------------------------------
     - name: Package JRE
       run: |
         cd output
@@ -86,5 +137,5 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: headless-jre-${{ github.event.inputs.jdk }}
+        name: headless-jre-fips-${{ github.event.inputs.jdk }}
         path: output/headless-jre.zip
