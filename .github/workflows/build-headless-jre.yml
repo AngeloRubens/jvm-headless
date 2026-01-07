@@ -54,29 +54,17 @@ jobs:
         rm -rf output
         mkdir output
 
+        MODULES="java.base,java.logging,java.xml,java.xml.crypto,java.sql,java.naming,java.security.jgss,java.security.sasl,java.rmi,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.management,jdk.management.agent,jdk.unsupported,jdk.charsets"
+
         $JAVA_HOME/bin/jlink \
-          --module-path $JAVA_HOME/jmods \
-          --add-modules \
-            java.base, \
-            java.logging, \
-            java.xml, \
-            java.xml.crypto, \
-            java.sql, \
-            java.naming, \
-            java.security.jgss, \
-            java.security.sasl, \
-            java.rmi, \
-            jdk.crypto.ec, \
-            jdk.crypto.cryptoki, \
-            jdk.management, \
-            jdk.management.agent, \
-            jdk.unsupported, \
-            jdk.charsets \
+          --module-path "$JAVA_HOME/jmods" \
+          --add-modules "$MODULES" \
           --output output/headless-jre \
           --strip-debug \
           --compress=2 \
           --no-man-pages \
           --no-header-files
+
 
     - name: Strip extra files
       run: |
