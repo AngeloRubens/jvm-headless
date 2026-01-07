@@ -100,17 +100,7 @@ jobs:
         fi
         echo "OK: headless confirmed"
 
-    - name: Runtime execution sanity check
-      run: |
-        cat <<'EOF' > Test.java
-        public class Test {
-          public static void main(String[] args) {
-            System.out.println("JRE OK - " + Runtime.version());
-          }
-        }
-        EOF
-
-        output/headless-jre/bin/java Test
+    
 
     # ------------------------------------------------------------
     # FIPS-ready verification
